@@ -1,0 +1,10 @@
+<resources>
+    <string name="app_name">BetShield</string>
+    <string name="app_tagline">Take Back Control. Block the Bet.</string>
+    <string name="accessibility_service_description">BetShield App Guard monitors only foreground app launches (window state changes) to block user-selected gambling apps. It never reads screen text, passwords, or personal messages.</string>
+    <string name="vpn_service_label">BetShield Local DNS Shield</string>
+    <string name="channel_protection_name">Protection Status</string>
+    <string name="channel_protection_desc">Shows when BetShield local DNS filtering is active.</string>
+    <string name="channel_alerts_name">Blocking Alerts</string>
+    <string name="channel_alerts_desc">Notifies you when a gambling domain or app is blocked.</string>
+</resources>

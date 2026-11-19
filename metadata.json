@@ -1,0 +1,6 @@
+{
+  "name": "BetShield",
+  "description": "Digital-wellbeing Android application helping users overcome gambling habits by blocking betting apps and websites via local VPN DNS filtering and opt-in accessibility protection.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

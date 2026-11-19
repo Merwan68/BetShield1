@@ -1,0 +1,92 @@
+name: Android GitHub Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Release version tag (e.g. v1.0.0)'
+        required: true
+        default: 'v1.0.0'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build & Publish BetShield Release APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: wrapper
+
+      - name: Run unit tests before release
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Decode release keystore from GitHub Secrets
+        id: signing
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$STORE_PASSWORD" ] && [ -n "$KEY_PASSWORD" ]; then
+            echo "$KEYSTORE_BASE64" | base64 --decode > my-upload-key.jks
+            echo "KEYSTORE_PATH=$(pwd)/my-upload-key.jks" >> $GITHUB_ENV
+            echo "signed=true" >> $GITHUB_OUTPUT
+          else
+            echo "signed=false" >> $GITHUB_OUTPUT
+            echo "::warning::Signing secrets (KEYSTORE_BASE64, STORE_PASSWORD, KEY_PASSWORD) are not configured. Producing unsigned/debuggable distribution notice."
+          fi
+
+      - name: Build Release APK
+        env:
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: gradle :app:assembleRelease --stacktrace
+
+      - name: Prepare Release APK file
+        run: |
+          TAG="${GITHUB_REF_NAME:-${{ github.event.inputs.tag_name }}}"
+          mkdir -p release-assets
+          if [ "${{ steps.signing.outputs.signed }}" = "true" ]; then
+            cp app/build/outputs/apk/release/app-release.apk "release-assets/BetShield-${TAG}.apk"
+            echo "RELEASE_NOTES=Signed production release APK for BetShield ${TAG}." >> $GITHUB_ENV
+          else
+            cp app/build/outputs/apk/release/app-release-unsigned.apk "release-assets/BetShield-${TAG}-unsigned.apk"
+            echo "RELEASE_NOTES=Unsigned release APK for BetShield ${TAG} (configure KEYSTORE_BASE64, STORE_PASSWORD, and KEY_PASSWORD secrets for signed releases)." >> $GITHUB_ENV
+          fi
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name || github.event.inputs.tag_name }}
+          name: BetShield ${{ github.ref_name || github.event.inputs.tag_name }}
+          body: |
+            ## BetShield — Take Back Control. Block the Bet.
+
+            ${{ env.RELEASE_NOTES }}
+
+            ### Installation
+            1. Download the APK attached below onto your Android device.
+            2. Allow installing unknown apps when prompted by Android.
+            3. Open BetShield, complete onboarding, and tap **Activate DNS Shield**.
+            4. *(Optional)* Enable **App Guard** in Android Accessibility Settings to block installed betting apps.
+          files: release-assets/*.apk
